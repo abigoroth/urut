@@ -116,8 +116,8 @@ const COMMENTS: Record<number, string[]> = {
 
 function seedVerification(rand: () => number, i: number, primary: ServiceType, name: string): Verification {
   const roll = i === 0 ? 0 : rand();
-  const submittedAt = new Date(Date.UTC(2026, 1, 1 + i)).toISOString();
   if (roll < 0.55) {
+    const submittedAt = new Date(Date.UTC(2026, 1, 1 + i)).toISOString();
     const certified = i === 0 || rand() < 0.6;
     return {
       status: "verified",
@@ -131,7 +131,7 @@ function seedVerification(rand: () => number, i: number, primary: ServiceType, n
       reviewedAt: new Date(Date.UTC(2026, 1, 3 + i)).toISOString(),
     };
   }
-  if (roll < 0.65) return { status: "pending", idVerified: false, certified: false, documents: ["ic_front", "selfie"], submittedAt };
+  // Seed data has no document files, so nobody starts "pending" review.
   return { status: "unverified", idVerified: false, certified: false };
 }
 

@@ -132,12 +132,7 @@ function ReviewCard({ item, adminKey, onChange }: { item: Item; adminKey: string
         <div className="mt-3 grid grid-cols-3 gap-2">
           {v.documents.map((d) => (
             <a key={d} href={`/api/admin/verifications/${item.id}/documents/${d}?key=${encodeURIComponent(adminKey)}`} target="_blank" rel="noreferrer">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/api/admin/verifications/${item.id}/documents/${d}?key=${encodeURIComponent(adminKey)}`}
-                alt={d}
-                className="aspect-[4/3] w-full rounded-lg bg-sand-100 object-cover"
-              />
+              <DocThumb src={`/api/admin/verifications/${item.id}/documents/${d}?key=${encodeURIComponent(adminKey)}`} alt={d} />
               <span className="mt-0.5 block text-center text-xs text-muted">{d.replace("_", " ")}</span>
             </a>
           ))}
@@ -172,3 +167,11 @@ function ReviewCard({ item, adminKey, onChange }: { item: Item; adminKey: string
   );
 }
 
+
+function DocThumb({ src, alt }: { src: string; alt: string }) {
+  const [missing, setMissing] = useState(false);
+  if (missing)
+    return <div className="grid aspect-[4/3] w-full place-items-center rounded-lg bg-sand-100 text-xs text-muted">File missing</div>;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt={alt} onError={() => setMissing(true)} className="aspect-[4/3] w-full rounded-lg bg-sand-100 object-cover" />;
+}
