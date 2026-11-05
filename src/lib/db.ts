@@ -1,8 +1,8 @@
 import "server-only";
 import { promises as fs } from "fs";
 import path from "path";
-import { seedProviders } from "./seed";
-import type { Booking, Provider } from "./types";
+import { averageRating, seedData } from "./seed";
+import type { Booking, Provider, Review, Verification, VerificationDocKind } from "./types";
 
 /**
  * Minimal persistence for the MVP: a JSON file in `.data/`.
@@ -11,11 +11,21 @@ import type { Booking, Provider } from "./types";
  * rest of the app only talks to the functions exported here.
  */
 interface DB {
+  version: number;
   providers: Provider[];
   bookings: Booking[];
+  reviews: Review[];
 }
 
-const DATA_FILE = path.join(process.cwd(), ".data", "db.json");
+const SCHEMA_VERSION = 2;
+const DATA_DIR = path.join(process.cwd(), ".data");
+const DATA_FILE = path.join(DATA_DIR, "db.json");
+/** Verification documents. Private: only served through the admin API. */
+const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
+
+function fresh(): DB {
+  return { version: SCHEMA_VERSION, ...seedData(), bookings: [] };
+}
 
 let db: DB | null = null;
 let writeChain: Promise<void> = Promise.resolve();
@@ -24,8 +34,10 @@ async function load(): Promise<DB> {
   if (db) return db;
   try {
     db = JSON.parse(await fs.readFile(DATA_FILE, "utf8")) as DB;
+    if (db.version !== SCHEMA_VERSION) throw new Error("old schema");
   } catch {
-    db = { providers: seedProviders(), bookings: [] };
+    // First run, or demo data from an older version: start from seed data.
+    db = fresh();
     await persist();
   }
   return db;
@@ -35,7 +47,7 @@ function persist(): Promise<void> {
   const snapshot = JSON.stringify(db, null, 2);
   writeChain = writeChain.then(async () => {
     try {
-      await fs.mkdir(path.dirname(DATA_FILE), { recursive: true });
+      await fs.mkdir(DATA_DIR, { recursive: true });
       await fs.writeFile(DATA_FILE, snapshot);
     } catch {
       // Read-only filesystem: keep running in memory.
@@ -102,4 +114,53 @@ export async function updateBooking(id: string, patch: Partial<Booking>): Promis
   Object.assign(b, patch);
   await persist();
   return b;
+}
+
+// Verification
+
+export async function setVerification(providerId: string, v: Verification): Promise<Provider | undefined> {
+  const data = await load();
+  const p = data.providers.find((x) => x.id === providerId);
+  if (!p) return undefined;
+  p.verification = v;
+  await persist();
+  return p;
+}
+
+export async function saveDocument(providerId: string, kind: VerificationDocKind, bytes: Buffer): Promise<void> {
+  const dir = path.join(UPLOAD_DIR, providerId);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, `${kind}.jpg`), bytes);
+}
+
+export async function readDocument(providerId: string, kind: VerificationDocKind): Promise<Buffer | null> {
+  try {
+    return await fs.readFile(path.join(UPLOAD_DIR, providerId, `${kind}.jpg`));
+  } catch {
+    return null;
+  }
+}
+
+// Reviews
+
+export async function listReviews(providerId: string): Promise<Review[]> {
+  return (await load()).reviews
+    .filter((r) => r.providerId === providerId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** Adds a review, links it to its booking and refreshes the provider's average. */
+export async function createReview(r: Review): Promise<Review> {
+  const data = await load();
+  data.reviews.push(r);
+  const booking = data.bookings.find((b) => b.id === r.bookingId);
+  if (booking) booking.reviewId = r.id;
+  const p = data.providers.find((x) => x.id === r.providerId);
+  if (p) {
+    const mine = data.reviews.filter((x) => x.providerId === p.id);
+    p.rating = averageRating(mine);
+    p.reviewCount = mine.length;
+  }
+  await persist();
+  return r;
 }

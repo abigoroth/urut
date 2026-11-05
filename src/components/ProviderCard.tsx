@@ -33,6 +33,31 @@ export function Stars({ rating, count }: { rating: number; count: number }) {
   );
 }
 
+export function VerifiedTick({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className="ml-1 inline-block -translate-y-px align-middle text-brand-500"
+      aria-label="ID verified"
+      role="img"
+    >
+      <path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.5 8 11 4.6-1.5 8-6 8-11V5z" />
+      <path d="m8.5 12 2.5 2.5 4.5-5" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function TrustBadges({ p }: { p: Pick<ProviderMatch, "verification"> }) {
+  return (
+    <>
+      {p.verification.idVerified && <Badge tone="brand">✓ ID verified</Badge>}
+      {p.verification.certified && <Badge tone="brand">🎓 Certified</Badge>}
+    </>
+  );
+}
+
 export function ModeBadge({ p }: { p: ProviderMatch }) {
   if (p.mode === "premises") return <Badge>At their place</Badge>;
   if (p.canHomeVisit) return <Badge tone="brand">Home visit ✓</Badge>;
@@ -54,7 +79,7 @@ export function ProviderCard({ p, rank }: { p: ProviderMatch; rank?: number }) {
           <div className="flex items-start justify-between gap-2">
             <h3 className="truncate leading-tight font-bold">
               {p.name}
-              {p.verified && <span className="ml-1 text-brand-500" title="Verified">✔︎</span>}
+              {p.verification.idVerified && <VerifiedTick />}
             </h3>
             {p.distanceKm !== null && (
               <span className={`shrink-0 text-sm font-bold ${rank === 0 ? "text-clay" : "text-brand-600"}`}>
@@ -75,6 +100,7 @@ export function ProviderCard({ p, rank }: { p: ProviderMatch; rank?: number }) {
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
+        <TrustBadges p={p} />
         <ModeBadge p={p} />
         {p.servesGender !== "all" && (
           <Badge tone="warn">{p.servesGender === "female_only" ? "Ladies only" : "Men only"}</Badge>

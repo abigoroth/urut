@@ -46,10 +46,47 @@ export interface Provider {
   services: ProviderService[];
   languages: string[];
   yearsExperience: number;
+  /** Average of verified-booking reviews (0 when none). */
   rating: number;
   reviewCount: number;
-  verified: boolean;
+  verification: Verification;
   available: boolean;
+  createdAt: string;
+}
+
+export type VerificationStatus = "unverified" | "pending" | "verified" | "rejected";
+
+export type VerificationDocKind = "ic_front" | "selfie" | "certificate";
+
+/**
+ * Trust checks done by the Urut team. Only the last 4 digits of the MyKad
+ * number are kept; document images live in private storage, never public.
+ */
+export interface Verification {
+  status: VerificationStatus;
+  /** MyKad checked against the selfie. */
+  idVerified: boolean;
+  /** Training certificate checked. */
+  certified: boolean;
+  legalName?: string;
+  icLast4?: string;
+  certificateName?: string;
+  documents?: VerificationDocKind[];
+  submittedAt?: string;
+  reviewedAt?: string;
+  /** Reason shown to the provider when rejected. */
+  note?: string;
+}
+
+export interface Review {
+  id: string;
+  providerId: string;
+  bookingId: string;
+  /** First name only, for privacy. */
+  customerName: string;
+  serviceType: ServiceType;
+  rating: number; // 1-5
+  comment: string;
   createdAt: string;
 }
 
@@ -69,6 +106,7 @@ export interface Booking {
   notes: string;
   distanceKm: number | null;
   status: BookingStatus;
+  reviewId?: string;
   createdAt: string;
 }
 

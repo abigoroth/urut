@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { BookingItem } from "@/components/BookingItem";
+import { RateBooking } from "@/components/RateBooking";
 import { api, useMyBookingIds, whatsappLink } from "@/lib/client";
 import type { Booking, ProviderMatch } from "@/lib/types";
 
@@ -50,7 +51,11 @@ export default function MyBookingsPage() {
           const price = p?.services.find((s) => s.type === b.serviceType)?.priceRM;
           return (
             <BookingItem key={b.id} b={b} title={p?.name ?? "…"} price={price}>
-              {p && (
+              {p && b.status === "completed" && !b.reviewId && <RateBooking booking={b} therapistName={p.name} onDone={load} />}
+              {b.status === "completed" && b.reviewId && (
+                <p className="w-full rounded-xl bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700">✓ Thanks for your review!</p>
+              )}
+              {p && b.status !== "completed" && (
                 <a
                   className="btn-ghost flex-1 py-2 text-sm"
                   target="_blank"

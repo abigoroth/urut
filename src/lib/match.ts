@@ -13,6 +13,8 @@ export interface MatchQuery {
   mode?: "home_visit" | "premises";
   maxDistanceKm?: number;
   sort?: "distance" | "rating" | "price";
+  /** Only identity-verified providers. */
+  verifiedOnly?: boolean;
   includeUnavailable?: boolean;
 }
 
@@ -23,11 +25,25 @@ export function toMatch(p: Provider, lat?: number, lng?: number, service?: Servi
   const relevant = service ? p.services.filter((s) => s.type === service) : p.services;
   return {
     ...p,
+    verification: publicVerification(p),
     distanceKm: d,
     areaName: area?.name ?? p.areaId,
     state: area?.state ?? "",
     canHomeVisit: p.mode !== "premises" && (d === null || d <= p.travelRadiusKm),
     fromPriceRM: Math.min(...(relevant.length ? relevant : p.services).map((s) => s.priceRM)),
+  };
+}
+
+/** What customers may see about a provider's checks: no name, IC digits or document list. */
+export function publicVerification(p: Provider) {
+  const v = p.verification;
+  return {
+    status: v.status,
+    idVerified: v.idVerified,
+    certified: v.certified,
+    certificateName: v.certified ? v.certificateName : undefined,
+    reviewedAt: v.reviewedAt,
+    note: undefined,
   };
 }
 
@@ -40,6 +56,7 @@ export function matchProviders(providers: Provider[], q: MatchQuery): ProviderMa
   const results = providers
     .filter((p) => q.includeUnavailable || p.available)
     .filter((p) => !q.service || p.services.some((s) => s.type === q.service))
+    .filter((p) => !q.verifiedOnly || p.verification.idVerified)
     .filter((p) => !q.therapistGender || p.gender === q.therapistGender)
     .filter((p) => {
       if (!q.customerGender || p.servesGender === "all") return true;

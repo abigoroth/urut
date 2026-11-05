@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
     customerGender: g(sp.get("customerGender")),
     mode: mode === "home_visit" || mode === "premises" ? mode : undefined,
     maxDistanceKm: num(sp.get("maxDistanceKm")),
+    verifiedOnly: sp.get("verifiedOnly") === "1" || sp.get("verifiedOnly") === "true",
     sort: sort === "rating" || sort === "price" ? sort : "distance",
   };
 
@@ -60,7 +61,7 @@ export async function POST(req: Request) {
     travelRadiusKm: input.mode === "premises" ? 0 : input.travelRadiusKm,
     rating: 0,
     reviewCount: 0,
-    verified: false,
+    verification: { status: "unverified", idVerified: false, certified: false },
     available: true,
     createdAt: new Date().toISOString(),
   });

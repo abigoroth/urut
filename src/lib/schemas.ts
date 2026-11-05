@@ -74,3 +74,45 @@ export function validationError(error: z.ZodError) {
     { status: 400 },
   );
 }
+
+/** MyKad: 12 digits, YYMMDD-PB-###G. Dashes/spaces allowed. */
+export const icNumberSchema = z
+  .string()
+  .transform((s) => s.replace(/[\s-]/g, ""))
+  .refine((s) => /^\d{6}\d{2}\d{4}$/.test(s), "Enter your 12-digit MyKad number, e.g. 900101-14-5678")
+  .refine((s) => {
+    const mm = Number(s.slice(2, 4));
+    const dd = Number(s.slice(4, 6));
+    return mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31;
+  }, "MyKad number has an invalid date of birth");
+
+const MAX_DOC_BYTES = 3 * 1024 * 1024;
+const dataUrlSchema = z
+  .string()
+  .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/, "Upload a JPG or PNG photo")
+  .refine((s) => (s.length - s.indexOf(",") - 1) * 0.75 <= MAX_DOC_BYTES, "Photo must be under 3 MB");
+
+export const verificationInputSchema = z.object({
+  legalName: z.string().trim().min(3, "Enter your full name as on MyKad").max(100),
+  icNumber: icNumberSchema,
+  certificateName: z.string().trim().max(120).optional(),
+  documents: z.object({
+    ic_front: dataUrlSchema,
+    selfie: dataUrlSchema,
+    certificate: dataUrlSchema.optional(),
+  }),
+});
+
+export const verificationDecisionSchema = z.object({
+  decision: z.enum(["approve", "reject"]),
+  idVerified: z.boolean().default(true),
+  certified: z.boolean().default(false),
+  note: z.string().trim().max(300).optional(),
+});
+
+export const reviewInputSchema = z.object({
+  bookingId: z.string(),
+  customerPhone: phoneSchema,
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().trim().max(600).default(""),
+});

@@ -25,6 +25,7 @@ export function SearchView() {
   const mode = params.get("mode") ?? "";
   const maxDistanceKm = params.get("maxDistanceKm") ?? "";
   const sort = params.get("sort") ?? "distance";
+  const verifiedOnly = params.get("verifiedOnly") === "1";
 
   function setParam(key: string, value: string) {
     const sp = new URLSearchParams(params.toString());
@@ -58,6 +59,9 @@ export function SearchView() {
         <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
           <button onClick={() => setShowFilters((v) => !v)} className={activeFilters ? "chip-on" : "chip-off"}>
             ⚙︎ Filters{activeFilters ? ` (${activeFilters})` : ""}
+          </button>
+          <button onClick={() => setParam("verifiedOnly", verifiedOnly ? "" : "1")} className={verifiedOnly ? "chip-on" : "chip-off"}>
+            🛡 Verified only
           </button>
           <button onClick={() => setParam("service", "")} className={!service ? "chip-on" : "chip-off"}>
             All

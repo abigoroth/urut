@@ -55,7 +55,7 @@ export function BookingItem({
         </p>
         {b.notes && <p className="text-muted">“{b.notes}”</p>}
       </div>
-      {children && <div className="mt-3 flex gap-2">{children}</div>}
+      {children && <div className="mt-3 flex flex-wrap gap-2">{children}</div>}
     </div>
   );
 }

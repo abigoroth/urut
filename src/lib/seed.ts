@@ -1,5 +1,5 @@
 import { getArea } from "./areas";
-import type { Gender, Provider, ProviderService, ServesGender, ServiceMode, ServiceType } from "./types";
+import type { Gender, Provider, ProviderService, Review, ServesGender, ServiceMode, ServiceType, Verification } from "./types";
 
 /** Small deterministic PRNG so seed data is stable between restarts. */
 function mulberry32(seed: number) {
@@ -80,31 +80,121 @@ function priceList(rand: () => number, types: ServiceType[]): ProviderService[] 
   });
 }
 
-export function seedProviders(): Provider[] {
-  const rand = mulberry32(2026);
-  return ROWS.map(([name, gender, areaId, mode, servesGender, services, languages, bio], i) => {
-    const area = getArea(areaId)!;
+const CERTIFICATES: Record<ServiceType, string> = {
+  urut_tradisional: "SKM Level 2 – Traditional Malay Massage",
+  urut_bersalin: "Certificate in Postnatal Care (Urut Bersalin)",
+  refleksologi: "Certificate in Foot Reflexology (120 hours)",
+  thai: "Thai Massage Certificate – Level 2",
+  swedish: "Diploma in Spa Therapy",
+  deep_tissue: "Certificate in Sports Massage",
+  tui_na: "Certificate in Tui Na Therapy",
+  bekam: "Certificate in Cupping Therapy (Bekam)",
+};
+
+const FEMALE_NAMES = ["Aisyah", "Farah", "Mei Ling", "Priya", "Siti", "Kavitha", "Nadia", "Liyana", "Rachel", "Hui Min", "Nurul", "Shalini"];
+const MALE_NAMES = ["Hafiz", "Daniel", "Amir", "Wei Jie", "Zul", "Jason", "Arun", "Faiz", "Kelvin", "Rizal", "Ganesh", "Irfan"];
+
+const COMMENTS: Record<number, string[]> = {
+  5: [
+    "Very professional and on time. My back feels so much better.",
+    "Urut sangat sedap, badan rasa ringan. Terima kasih!",
+    "Tangan berbisa, sakit pinggang terus hilang.",
+    "Clean, friendly, and explained everything before starting.",
+    "Arrived on time and brought her own mat and oils. Highly recommended.",
+    "Servis terbaik, harga pun berpatutan. Akan repeat lagi.",
+    "Good pressure, really helped my shoulder pain after long hours at the desk.",
+    "Selesa dan mesra. Rasa macam dengan keluarga sendiri.",
+  ],
+  4: [
+    "Gentle but effective. Will book again.",
+    "Bagus, cuma lambat 10 minit. Urut memang sedap.",
+    "Nice session, would love a bit more time on the legs next time.",
+    "Servis okay dan profesional.",
+  ],
+  3: ["Okay session, pressure a bit too strong for me.", "Boleh tahan, tapi tempat agak sempit."],
+};
+
+function seedVerification(rand: () => number, i: number, primary: ServiceType, name: string): Verification {
+  const roll = i === 0 ? 0 : rand();
+  const submittedAt = new Date(Date.UTC(2026, 1, 1 + i)).toISOString();
+  if (roll < 0.55) {
+    const certified = i === 0 || rand() < 0.6;
     return {
-      id: `p${String(i + 1).padStart(3, "0")}`,
+      status: "verified",
+      idVerified: true,
+      certified,
+      legalName: name,
+      icLast4: String(1000 + Math.floor(rand() * 8999)),
+      certificateName: certified ? CERTIFICATES[primary] : undefined,
+      documents: certified ? ["ic_front", "selfie", "certificate"] : ["ic_front", "selfie"],
+      submittedAt,
+      reviewedAt: new Date(Date.UTC(2026, 1, 3 + i)).toISOString(),
+    };
+  }
+  if (roll < 0.65) return { status: "pending", idVerified: false, certified: false, documents: ["ic_front", "selfie"], submittedAt };
+  return { status: "unverified", idVerified: false, certified: false };
+}
+
+export function averageRating(reviews: Pick<Review, "rating">[]): number {
+  if (!reviews.length) return 0;
+  return +(reviews.reduce((a, r) => a + r.rating, 0) / reviews.length).toFixed(1);
+}
+
+export function seedData(): { providers: Provider[]; reviews: Review[] } {
+  const rand = mulberry32(2026);
+  const reviews: Review[] = [];
+  const providers = ROWS.map(([name, gender, areaId, mode, servesGender, services, languages, bio], i): Provider => {
+    const area = getArea(areaId)!;
+    const id = `p${String(i + 1).padStart(3, "0")}`;
+    const phone = `601${Math.floor(10000000 + rand() * 89999999)}`;
+    const lat = +(area.lat + (rand() - 0.5) * 0.03).toFixed(5);
+    const lng = +(area.lng + (rand() - 0.5) * 0.03).toFixed(5);
+    const travelRadiusKm = mode === "premises" ? 0 : [10, 15, 20, 25][Math.floor(rand() * 4)];
+    const priced = priceList(rand, services);
+    const yearsExperience = 2 + Math.floor(rand() * 20);
+
+    // Reviews from (simulated) completed bookings.
+    const n = i === 0 ? 12 : 2 + Math.floor(rand() * 8);
+    const names = servesGender === "male_only" ? MALE_NAMES : servesGender === "female_only" ? FEMALE_NAMES : [...FEMALE_NAMES, ...MALE_NAMES];
+    const mine: Review[] = [];
+    for (let k = 0; k < n; k++) {
+      const r = rand();
+      const rating = r < 0.68 ? 5 : r < 0.92 ? 4 : 3;
+      const bank = COMMENTS[rating];
+      mine.push({
+        id: `r_${id}_${k}`,
+        providerId: id,
+        bookingId: `seed_${id}_${k}`,
+        customerName: names[Math.floor(rand() * names.length)],
+        serviceType: services[Math.floor(rand() * services.length)],
+        rating,
+        comment: bank[Math.floor(rand() * bank.length)],
+        createdAt: new Date(Date.UTC(2026, 9, 30 - k * 3 - Math.floor(rand() * 3), 10)).toISOString(),
+      });
+    }
+    reviews.push(...mine);
+
+    return {
+      id,
       name,
       gender,
       bio,
-      phone: `601${Math.floor(10000000 + rand() * 89999999)}`,
+      phone,
       areaId,
-      // Small jitter so providers in the same area are not on the exact same point.
-      lat: +(area.lat + (rand() - 0.5) * 0.03).toFixed(5),
-      lng: +(area.lng + (rand() - 0.5) * 0.03).toFixed(5),
+      lat,
+      lng,
       mode,
-      travelRadiusKm: mode === "premises" ? 0 : [10, 15, 20, 25][Math.floor(rand() * 4)],
+      travelRadiusKm,
       servesGender,
-      services: priceList(rand, services),
+      services: priced,
       languages,
-      yearsExperience: 2 + Math.floor(rand() * 20),
-      rating: +(3.9 + rand() * 1.1).toFixed(1),
-      reviewCount: 5 + Math.floor(rand() * 240),
-      verified: rand() > 0.3,
-      available: rand() > 0.1,
+      yearsExperience,
+      rating: averageRating(mine),
+      reviewCount: mine.length,
+      verification: seedVerification(rand, i, services[0], name),
+      available: i === 0 || rand() > 0.1,
       createdAt: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(),
     };
   });
+  return { providers, reviews };
 }

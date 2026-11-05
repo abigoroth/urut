@@ -47,6 +47,60 @@ function Intro({ onDemo }: { onDemo: () => void }) {
   );
 }
 
+interface OwnVerification {
+  status: "unverified" | "pending" | "verified" | "rejected";
+  idVerified: boolean;
+  certified: boolean;
+  certificateName?: string;
+  note?: string;
+}
+
+function VerificationCard({ providerId }: { providerId: string }) {
+  const [v, setV] = useState<OwnVerification | null>(null);
+  useEffect(() => {
+    api<{ verification: OwnVerification }>(`/api/providers/${providerId}/verification`).then((r) => setV(r.verification), () => {});
+  }, [providerId]);
+  if (!v) return null;
+
+  if (v.status === "verified" || (v.idVerified && v.status !== "pending"))
+    return (
+      <div className="card mt-3 flex items-center gap-3 p-4">
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-50 text-lg text-brand-600">🛡</span>
+        <div className="flex-1">
+          <p className="font-semibold">You&apos;re verified</p>
+          <p className="text-sm text-muted">{v.certified ? `ID verified · ${v.certificateName}` : "ID verified. Add a certificate to get the Certified badge."}</p>
+        </div>
+        {!v.certified && (
+          <Link href="/provider/verify" className="text-sm font-semibold text-brand-600">
+            Add
+          </Link>
+        )}
+      </div>
+    );
+  if (v.status === "pending")
+    return (
+      <div className="card mt-3 flex items-center gap-3 p-4">
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-amber-50 text-lg">⏳</span>
+        <div>
+          <p className="font-semibold">Verification in review</p>
+          <p className="text-sm text-muted">We&apos;re checking your documents, usually within 1 working day.</p>
+        </div>
+      </div>
+    );
+  return (
+    <Link href="/provider/verify" className="card mt-3 flex items-center gap-3 border border-brand-100 bg-brand-50 p-4">
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-lg">🛡</span>
+      <div className="flex-1">
+        <p className="font-semibold text-brand-700">{v.status === "rejected" ? "Verification not approved" : "Get verified"}</p>
+        <p className="text-sm text-muted">
+          {v.status === "rejected" ? `${v.note} Tap to resubmit.` : "Verified therapists get more bookings. Takes 2 minutes."}
+        </p>
+      </div>
+      <span className="text-brand-600">→</span>
+    </Link>
+  );
+}
+
 const TABS: { id: string; label: string; match: BookingStatus[] }[] = [
   { id: "new", label: "New", match: ["pending"] },
   { id: "upcoming", label: "Upcoming", match: ["accepted"] },
@@ -124,6 +178,8 @@ function Dashboard({ id, onSignOut }: { id: string; onSignOut: () => void }) {
           View
         </Link>
       </div>
+
+      <VerificationCard providerId={id} />
 
       <button onClick={toggleAvailable} className="card mt-3 flex w-full items-center justify-between p-4 text-left">
         <div>

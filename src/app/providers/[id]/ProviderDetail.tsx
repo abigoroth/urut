@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Avatar, Badge, ModeBadge, Stars } from "@/components/ProviderCard";
+import { Avatar, Badge, ModeBadge, Stars, TrustBadges, VerifiedTick } from "@/components/ProviderCard";
+import { Reviews } from "@/components/Reviews";
 import { addMyBooking, api, ApiError, formatRM, useCustomerProfile, useSavedLocation, whatsappLink } from "@/lib/client";
 import { formatDistance } from "@/lib/geo";
 import { serviceInfo, serviceLabel } from "@/lib/services";
@@ -42,7 +43,10 @@ export function ProviderDetail() {
           <div className="flex gap-4">
             <Avatar name={p.name} gender={p.gender} size={72} />
             <div className="min-w-0 flex-1">
-              <h1 className="text-xl leading-tight font-bold">{p.name}</h1>
+              <h1 className="text-xl leading-tight font-bold">
+                {p.name}
+                {p.verification.idVerified && <VerifiedTick size={18} />}
+              </h1>
               <p className="mt-1 text-sm text-muted">
                 {p.areaName}, {p.state}
               </p>
@@ -56,8 +60,8 @@ export function ProviderDetail() {
           </div>
           <p className="mt-4 text-[15px] leading-relaxed">{p.bio}</p>
           <div className="mt-4 flex flex-wrap gap-1.5">
+            <TrustBadges p={p} />
             <ModeBadge p={p} />
-            {p.verified && <Badge tone="brand">Verified</Badge>}
             {p.servesGender !== "all" && <Badge tone="warn">{p.servesGender === "female_only" ? "Ladies only" : "Men only"}</Badge>}
             <Badge>{p.gender === "female" ? "Female" : "Male"} therapist</Badge>
             <Badge>{p.yearsExperience} yrs experience</Badge>
@@ -76,6 +80,8 @@ export function ProviderDetail() {
             <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">Not taking bookings right now.</p>
           )}
         </div>
+
+        <TrustPanel p={p} />
 
         <div className="card divide-y divide-sand-100">
           <h2 className="px-5 pt-4 pb-3 font-bold">Services & prices</h2>
@@ -108,6 +114,10 @@ export function ProviderDetail() {
         </div>
       </div>
 
+      <div className="mt-4 px-4">
+        <Reviews providerId={p.id} />
+      </div>
+
       <div className="pb-safe fixed inset-x-0 bottom-[60px] z-20 mx-auto flex max-w-md gap-2 border-t border-sand-200 bg-white px-4 pt-3">
         <a href={wa} target="_blank" rel="noopener noreferrer" className="btn-outline flex-1">
           💬 WhatsApp
@@ -120,6 +130,53 @@ export function ProviderDetail() {
 
       {bookingFor && <BookingSheet provider={p} initialService={bookingFor} onClose={() => setBookingFor(null)} />}
     </div>
+  );
+}
+
+function TrustPanel({ p }: { p: ProviderMatch }) {
+  const v = p.verification;
+  const since = v.reviewedAt
+    ? new Date(v.reviewedAt).toLocaleDateString("en-MY", { month: "short", year: "numeric" })
+    : null;
+  const rows = [
+    {
+      ok: v.idVerified,
+      title: v.idVerified ? "Identity verified" : "Identity not verified yet",
+      text: v.idVerified
+        ? `MyKad and selfie checked by the Urut team${since ? ` (${since})` : ""}.`
+        : "This therapist hasn't completed ID checks. Take extra care when booking.",
+    },
+    {
+      ok: v.certified,
+      title: v.certified ? "Certified" : "No certificate on file",
+      text: v.certified ? (v.certificateName ?? "Training certificate checked.") : "Training certificate not submitted.",
+    },
+    {
+      ok: p.reviewCount > 0,
+      title: p.reviewCount > 0 ? `${p.rating.toFixed(1)}★ from ${p.reviewCount} verified bookings` : "No reviews yet",
+      text: "Only customers who completed a session can leave a review.",
+    },
+  ];
+  return (
+    <section className="card p-5">
+      <h2 className="font-bold">Why you can trust {p.name.split(" ").slice(0, 2).join(" ")}</h2>
+      <ul className="mt-3 space-y-3">
+        {rows.map((r) => (
+          <li key={r.title} className="flex gap-3">
+            <span
+              className={`grid size-7 shrink-0 place-items-center rounded-full text-sm font-bold ${r.ok ? "bg-brand-50 text-brand-600" : "bg-amber-50 text-amber-700"}`}
+              aria-hidden
+            >
+              {r.ok ? "✓" : "!"}
+            </span>
+            <div>
+              <p className="font-semibold">{r.title}</p>
+              <p className="text-sm text-muted">{r.text}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
